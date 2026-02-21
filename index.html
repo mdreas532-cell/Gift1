@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Gift Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+        body { font-family: 'Hind Siliguri', sans-serif; background: #0f172a; color: white; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-grad { background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); transition: 0.3s; }
+        .btn-grad:hover { opacity: 0.9; transform: scale(0.98); }
+        #appSection, #authSection { display: none; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="authSection" class="w-full max-w-md space-y-6">
+        <div class="text-center">
+            <div class="inline-block p-4 rounded-full bg-indigo-500/20 mb-4">
+                <i class="fas fa-user-lock text-4xl text-indigo-400"></i>
+            </div>
+            <h1 class="text-3xl font-bold">লগইন করুন</h1>
+            <p class="text-slate-400 mt-2">আপনার অ্যাকাউন্টের তথ্য দিয়ে প্রবেশ করুন</p>
+        </div>
+        <div class="glass p-8 rounded-3xl space-y-4">
+            <div>
+                <label class="block text-sm mb-2 text-slate-300">ইমেইল এড্রেস</label>
+                <input type="email" id="emailInput" class="w-full bg-slate-800/50 border border-slate-700 p-4 rounded-xl focus:outline-none focus:border-indigo-500" placeholder="example@mail.com">
+            </div>
+            <div>
+                <label class="block text-sm mb-2 text-slate-300">পাসওয়ার্ড</label>
+                <input type="password" id="passInput" class="w-full bg-slate-800/50 border border-slate-700 p-4 rounded-xl focus:outline-none focus:border-indigo-500" placeholder="••••••••">
+            </div>
+            <button id="loginBtn" class="w-full btn-grad p-4 rounded-xl font-bold text-lg mt-4">লগইন করুন</button>
+        </div>
+    </div>
+
+    <div id="appSection" class="w-full max-w-2xl h-[90vh] flex flex-col space-y-4">
+        <div class="glass p-5 rounded-2xl flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">স্বাগতম,</p>
+                    <p id="displayEmail" class="text-sm font-bold truncate max-w-[150px]">ইমেইল লোড হচ্ছে...</p>
+                </div>
+            </div>
+            <button onclick="handleLogout()" class="bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500 hover:text-white transition">লগআউট</button>
+        </div>
+
+        <div class="glass p-8 rounded-3xl text-center relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl"></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/1169/1169905.png" class="w-24 mx-auto mb-6 drop-shadow-2xl" alt="Gift">
+            <h2 class="text-2xl font-bold mb-2">গিফট কোড ক্লেইম</h2>
+            <p class="text-slate-400 text-sm mb-6">আপনার গিফট কোডটি নিচের বক্সে দিন</p>
+            
+            <div class="space-y-4">
+                <input type="text" id="giftCodeInput" class="w-full bg-slate-900 border-2 border-slate-700 p-4 rounded-2xl text-center text-xl font-bold tracking-widest focus:border-indigo-500 outline-none transition" placeholder="ENTER CODE">
+                <button id="claimBtn" class="w-full btn-grad p-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-500/20">ক্লেইম করুন</button>
+            </div>
+        </div>
+
+        <div class="glass flex-1 rounded-3xl p-6 overflow-hidden flex flex-col">
+            <h3 class="font-bold text-lg mb-4 flex items-center">
+                <i class="fas fa-history mr-2 text-indigo-400"></i> ক্লেইম হিস্টোরি
+            </h3>
+            <div id="historyList" class="space-y-3 overflow-y-auto flex-1 pr-2">
+                <p class="text-center text-slate-500 py-10">কোনো হিস্টোরি পাওয়া যায়নি</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, where, getDocs, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBY2R6jBre2pjrW3cN0QP8LGrLldgKWEtc",
+        authDomain: "smartpay-4cae4.firebaseapp.com",
+        projectId: "smartpay-4cae4",
+        storageBucket: "smartpay-4cae4.firebasestorage.app",
+        messagingSenderId: "531344716314",
+        appId: "1:531344716314:web:0eac7f60479bfd66f7d7a3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Auth State Observer
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('appSection').style.display = 'flex';
+            document.getElementById('displayEmail').innerText = user.email;
+            loadHistory(user.uid);
+        } else {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('appSection').style.display = 'none';
+        }
+    });
+
+    // Login Logic
+    document.getElementById('loginBtn').onclick = async () => {
+        const email = document.getElementById('emailInput').value.trim();
+        const pass = document.getElementById('passInput').value.trim();
+        if(!email || !pass) return alert("ইমেইল এবং পাসওয়ার্ড দিন");
+        try { await signInWithEmailAndPassword(auth, email, pass); } 
+        catch (err) { alert("ভুল ইমেইল বা পাসওয়ার্ড!"); }
+    };
+
+    // --- অ্যাডভান্সড ক্লেইম লজিক (সবগুলো ফিল্ড ভ্যালিডেশন সহ) ---
+    document.getElementById('claimBtn').onclick = async () => {
+        const codeInput = document.getElementById('giftCodeInput').value.trim();
+        const user = auth.currentUser;
+        
+        if(!codeInput) return alert("কোড লিখুন");
+
+        const btn = document.getElementById('claimBtn');
+        btn.disabled = true; 
+        btn.innerText = "যাচাই হচ্ছে...";
+
+        try {
+            // ১. প্রথমে চেক করি এই ইউজার অলরেডি কয়বার এই কোডটি ব্যবহার করেছে
+            const historyQ = query(collection(db, "history"), where("uid", "==", user.uid), where("code", "==", codeInput));
+            const historySnap = await getDocs(historyQ);
+            const userRedeemCount = historySnap.size;
+
+            // ২. ট্রানজেকশন শুরু (যাতে ডেটা কনসিস্টেন্ট থাকে)
+            await runTransaction(db, async (transaction) => {
+                const codeRef = doc(db, "gift_codes", codeInput);
+                const codeSnap = await transaction.get(codeRef);
+
+                if (!codeSnap.exists()) {
+                    throw "ইনভ্যালিড কোড! দয়া করে সঠিক কোড দিন।";
+                }
+
+                const data = codeSnap.data();
+                const now = new Date();
+
+                // ৩. ফিল্ড ভিত্তিক ভ্যালিডেশন
+                
+                // isActive চেক
+                if (data.isActive !== true) {
+                    throw "এই কোডটি বর্তমানে ডি-অ্যাক্টিভ আছে।";
+                }
+
+                // startAt চেক
+                if (data.startAt && now < data.startAt.toDate()) {
+                    throw `এই অফারটি শুরু হবে: ${data.startAt.toDate().toLocaleString()}`;
+                }
+
+                // expireAt চেক
+                if (data.expireAt && now > data.expireAt.toDate()) {
+                    throw "দুঃখিত, এই কোডটির মেয়াদ শেষ হয়ে গেছে।";
+                }
+
+                // totalLimit চেক
+                if (data.usedCount >= data.totalLimit) {
+                    throw "এই কোডটির ব্যবহারের সীমা (Total Limit) শেষ হয়ে গেছে।";
+                }
+
+                // perUserLimit চেক
+                if (userRedeemCount >= data.perUserLimit) {
+                    throw `আপনি এই কোডটি সর্বোচ্চ ${data.perUserLimit} বার ব্যবহার করতে পারবেন।`;
+                }
+
+                // ৪. সব ঠিক থাকলে আপডেট শুরু
+                const userRef = doc(db, "users", user.uid);
+                const reward = data.perUserAmount || 0;
+
+                // ইউজারের ওয়ালেট আপডেট
+                transaction.update(userRef, {
+                    giftWallet: increment(reward)
+                });
+
+                // কোড এর usedCount আপডেট
+                transaction.update(codeRef, {
+                    usedCount: increment(1)
+                });
+
+                // হিস্টোরি অ্যাড করা
+                const historyRef = doc(collection(db, "history"));
+                transaction.set(historyRef, {
+                    uid: user.uid,
+                    code: codeInput,
+                    amount: reward,
+                    timestamp: serverTimestamp()
+                });
+
+                return reward; // সফল হলে রিওয়ার্ড রিটার্ন
+            });
+
+            alert(`অভিনন্দন! আপনি ক্লেইম সফলভাবে সম্পন্ন করেছেন।`);
+            document.getElementById('giftCodeInput').value = "";
+            loadHistory(user.uid);
+
+        } catch (error) {
+            console.error(error);
+            // যদি throw থেকে আসা মেসেজ হয় তবে সেটি দেখাবে, নয়তো জেনেরিক এরর
+            alert(typeof error === 'string' ? error : "সার্ভার এরর! ইন্টারনেটের সমস্যা হতে পারে।");
+        } finally {
+            btn.disabled = false; 
+            btn.innerText = "ক্লেইম করুন";
+        }
+    };
+
+    async function loadHistory(uid) {
+        const list = document.getElementById('historyList');
+        const q = query(collection(db, "history"), where("uid", "==", uid), orderBy("timestamp", "desc"));
+        try {
+            const snap = await getDocs(q);
+            list.innerHTML = snap.empty ? '<p class="text-center py-5">কোনো হিস্টোরি নেই</p>' : "";
+            snap.forEach(doc => {
+                const data = doc.data();
+                list.innerHTML += `
+                    <div class="bg-slate-800/40 p-3 rounded-xl flex justify-between items-center border border-slate-700 mb-2">
+                        <div><p class="text-indigo-400 font-bold">${data.code}</p></div>
+                        <div class="text-green-400 font-bold">+ ${data.amount}৳</div>
+                    </div>`;
+            });
+        } catch (e) { 
+            console.log(e);
+            list.innerHTML = "হিস্টোরি লোড করা যাচ্ছে না।"; 
+        }
+    }
+
+    window.handleLogout = () => signOut(auth);
+</script>
+
+</body>
+</html>
